@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PR Code Generator</title>
+</head>
+<body>
+    <h1>PR Code Generator</h1>
+    {% if pr_code %}
+        <p>Generated PR Code: {{ pr_code }}</p>
+        <img src="data:image/png;base64,{{ qr_code }}" alt="QR Code"/>
+    {% else %}
+        <button onclick="window.location.href='/generate-pr-code'">Generate PR Code</button>
+    {% endif %}
+</body>
+</html>
