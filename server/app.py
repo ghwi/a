@@ -8,7 +8,10 @@ import qrcode
 import io
 import base64
 
+from flask_cors import CORS 
+
 app = Flask(__name__)
+CORS(app)  
 SECRET_KEY = 'your_secret_key'
 
 # 임시 사용자 데이터 (DB는 나중에 추가)

@@ -10,15 +10,22 @@ function LoginPage() {
   const navigate = useNavigate();
 
   const handleLogin = async () => {
+    console.log("입력한 정보:", { username, password }); // 디버깅용 로그
+
     try {
       const response = await axios.post(`${API}/login`, {
         username,
         password,
       });
 
-      localStorage.setItem('token', response.data.token); // 토큰 저장
-      navigate('/dashboard');
+      console.log("서버 응답:", response.data); // 디버깅용 로그
+
+      localStorage.setItem('token', response.data.token); 
+      alert("로그인 성공! 이동합니다"); 
+      navigate('/dashboard'); 
+      
     } catch (err) {
+      console.log("로그인 실패:", err.response?.data || err.message); // 디버깅용 로그
       setError(true);
       setTimeout(() => setError(false), 2000);
     }
@@ -27,8 +34,17 @@ function LoginPage() {
   return (
     <div style={{ textAlign: 'center', marginTop: '80px' }}>
       <h2>로그인</h2>
-      <input placeholder="아이디" value={username} onChange={(e) => setUsername(e.target.value)} /><br /><br />
-      <input placeholder="비밀번호" type="password" value={password} onChange={(e) => setPassword(e.target.value)} /><br /><br />
+      <input
+        placeholder="아이디"
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+      /><br /><br />
+      <input
+        placeholder="비밀번호"
+        type="password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+      /><br /><br />
       <button onClick={handleLogin}>로그인</button>
       <button onClick={() => navigate('/signup')}>회원가입</button>
       {error && <p style={{ color: 'red' }}>잘못된 정보입니다</p>}

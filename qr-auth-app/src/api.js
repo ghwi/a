@@ -1,2 +1,2 @@
-const API = process.env.REACT_APP_API_URL;
+const API = 'https://a-9yf4.onrender.com';
 export default API;
