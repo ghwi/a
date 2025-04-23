@@ -27,10 +27,11 @@ def login():
     username = data.get('username')
     password = data.get('password')
 
+    # 사용자 이름과 비밀번호 확인
     if username in users and users[username]['password'] == password:
-        token = create_token(username)
-        return jsonify({'token': token})
-    return jsonify({'message': 'Invalid credentials'}), 401
+        token = create_token(username)  # JWT 토큰 생성
+        return jsonify({'token': token})  # 로그인 성공 시 토큰 반환
+    return jsonify({'message': 'Invalid credentials'}), 401  # 로그인 실패 시 오류 메시지 반환
 
 # 회원가입 API
 @app.route('/signup', methods=['POST'])
@@ -38,6 +39,8 @@ def signup():
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
+
+    print("현재 users:", users)  
 
     if username in users:
         return jsonify({'message': 'Username already exists'}), 400
