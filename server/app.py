@@ -75,4 +75,4 @@ def home():
     return 'Welcome to the PR Code Generator!'
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5001)  # Flask 서버 실행
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000))) # Flask 서버 실행

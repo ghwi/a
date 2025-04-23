@@ -15,10 +15,10 @@ const App = () => {
   // 로그인 처리
   const handleLogin = async () => {
     try {
-      const response = await axios.post('http://localhost:5001/login', {
-        username,
-        password,
-      });
+        const response = await axios.post('http://192.168.1.10:5001/login', {
+            username,
+            password,
+          });
       if (response.data.token) {
         setIsLoggedIn(true);
         Alert.alert('Login Successful', 'You have logged in!');
@@ -34,10 +34,10 @@ const App = () => {
   // 회원가입 처리
   const handleSignup = async () => {
     try {
-      const response = await axios.post('http://localhost:5001/signup', {
-        username,
-        password,
-      });
+        const response = await axios.post('http://192.168.1.10:5001/login', {
+            username,
+            password,
+          });
       if (response.data.message === 'User created successfully') {
         Alert.alert('Signup Successful', 'You can now log in!');
       } else {
@@ -83,3 +83,19 @@ const App = () => {
         }}
         placeholder="Password"
         secureTextEntry
+        value={password}
+        onChangeText={setPassword}
+      />
+      {!isLoggedIn ? (
+        <>
+          <Button title="Login" onPress={handleLogin} />
+          <Button title="Signup" onPress={handleSignup} />
+        </>
+      ) : (
+        <Text>Logged in successfully!</Text>
+      )}
+    </View>
+  );
+};
+
+export default App;
