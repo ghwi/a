@@ -1,3 +1,4 @@
+import os  # os 모듈 추가
 from flask import Flask, render_template, request, jsonify
 import jwt
 import datetime
