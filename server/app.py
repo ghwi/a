@@ -12,7 +12,7 @@ app = Flask(__name__)
 SECRET_KEY = 'your_secret_key'
 
 # 임시 사용자 데이터 (DB는 나중에 추가)
-users = {'test': {'password': 'password'}}
+users = {'test': {'password': '1234'}}  # 아이디와 비밀번호를 1234로 설정
 
 # JWT 토큰 생성 함수
 def create_token(username):
