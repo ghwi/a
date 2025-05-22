@@ -26,11 +26,11 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'fallback_secret_key')
 
 # MySQL 연결 (Railway 기준)
 conn = pymysql.connect(
-    host=os.getenv('DB_HOST', 'mysql.railway.internal'),
-    user=os.getenv('DB_USER', 'root'),
-    password=os.getenv('DB_PASSWORD'),
-    database=os.getenv('DB_NAME', 'railway'),
-    port=int(os.getenv('DB_PORT', 3306)),
+    host=os.getenv("DB_HOST"),
+    user=os.getenv("DB_USER"),
+    password=os.getenv("DB_PASSWORD"),
+    db=os.getenv("DB_NAME"),
+    port=int(os.getenv("DB_PORT")),
     charset='utf8mb4',
     cursorclass=pymysql.cursors.DictCursor
 )
