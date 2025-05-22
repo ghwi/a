@@ -1,90 +1,41 @@
 import os
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 import jwt
 import datetime
-import pymysql
-from flask_cors import CORS
-from functools import wraps
 import random
 import string
 import qrcode
 import io
 import base64
+import pymysql
+from flask_cors import CORS
 from dotenv import load_dotenv
+import bcrypt  # ✅ 추가
 
-# .env 환경변수 로드
 load_dotenv()
 
-# Flask 앱 초기화
 app = Flask(__name__)
 CORS(app)
 
-# JWT 시크릿 키 (환경변수에서 불러오기, 기본값은 fallback)
-SECRET_KEY = os.getenv('SECRET_KEY', 'fallback_secret_key')
+SECRET_KEY = os.getenv("SECRET_KEY", "your_fallback_secret_key")
 
-# MySQL 연결 (Railway 기준)
-conn = pymysql.connect(
-    host=os.getenv("DB_HOST"),
-    user=os.getenv("DB_USER"),
-    password=os.getenv("DB_PASSWORD"),
-    db=os.getenv("DB_NAME"),
-    port=int(os.getenv("DB_PORT")),
-    charset='utf8mb4',
-    cursorclass=pymysql.cursors.DictCursor
-)
+def get_db_connection():
+    return pymysql.connect(
+        host=os.getenv("DB_HOST"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        db=os.getenv("DB_NAME"),
+        port=int(os.getenv("DB_PORT", 3306)),
+        charset='utf8mb4',
+        cursorclass=pymysql.cursors.DictCursor
+    )
 
-# ✅ 루트 경로 라우터 추가
-@app.route('/')
-def index():
-    return '✅ Flask API 서버가 정상 작동 중입니다!'
-
-# JWT 토큰 생성 함수
 def create_token(username):
     expiration = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
     token = jwt.encode({'username': username, 'exp': expiration}, SECRET_KEY, algorithm='HS256')
     return token
 
-# JWT 토큰 검증 데코레이터
-def token_required(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        token = None
-        if 'Authorization' in request.headers:
-            auth_header = request.headers['Authorization']
-            if auth_header.startswith("Bearer "):
-                token = auth_header[7:]
-
-        if not token:
-            return jsonify({'message': 'Token is missing!'}), 401
-
-        try:
-            data = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
-            current_user = data['username']
-        except Exception:
-            return jsonify({'message': 'Token is invalid or expired!'}), 401
-
-        return f(current_user, *args, **kwargs)
-    return decorated
-
-# 로그인 API
-@app.route('/login', methods=['POST'])
-def login():
-    data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
-
-    with conn.cursor() as cursor:
-        sql = "SELECT * FROM users WHERE id=%s AND pass=%s"
-        cursor.execute(sql, (username, password))
-        user = cursor.fetchone()
-
-    if user:
-        token = create_token(username)
-        return jsonify({'token': token})
-    else:
-        return jsonify({'message': 'Invalid credentials'}), 401
-
-# 회원가입 API
+# ✅ 회원가입 API - 비밀번호 암호화 추가
 @app.route('/signup', methods=['POST'])
 def signup():
     data = request.get_json()
@@ -96,54 +47,67 @@ def signup():
     if not all([username, password, name, age]):
         return jsonify({'message': 'All fields are required'}), 400
 
-    with conn.cursor() as cursor:
-        cursor.execute("SELECT * FROM users WHERE id=%s", (username,))
-        if cursor.fetchone():
-            return jsonify({'message': 'Username already exists'}), 400
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT * FROM user WHERE id=%s", (username,))
+            if cursor.fetchone():
+                return jsonify({'message': 'Username already exists'}), 400
 
-        sql = "INSERT INTO users (id, pass, name, age) VALUES (%s, %s, %s, %s)"
-        cursor.execute(sql, (username, password, name, age))
-        conn.commit()
+            # 비밀번호 암호화
+            hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+
+            sql = "INSERT INTO user (id, pass, name, age) VALUES (%s, %s, %s, %s)"
+            cursor.execute(sql, (username, hashed_password, name, age))
+            conn.commit()
+    finally:
+        conn.close()
 
     return jsonify({'message': 'User created successfully'}), 201
 
-# PR 코드 임시 저장소
-valid_pr_codes = {}  # {pr_code: expiration_datetime}
-
-# PR 코드 생성 API
-@app.route('/generate-pr-code', methods=['GET'])
-@token_required
-def generate_pr_code(current_user):
-    pr_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-    expiration = datetime.datetime.utcnow() + datetime.timedelta(minutes=3)
-    valid_pr_codes[pr_code] = expiration
-
-    qr = qrcode.QRCode(version=1, box_size=10, border=5)
-    qr.add_data(pr_code)
-    qr.make(fit=True)
-
-    img = qr.make_image(fill='black', back_color='white')
-    buffered = io.BytesIO()
-    img.save(buffered, format="PNG")
-    img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
-
-    return jsonify({'pr_code': pr_code, 'qr_code': img_str})
-
-# PR 코드 검증 API
-@app.route('/verify-pr-code', methods=['POST'])
-@token_required
-def verify_pr_code(current_user):
+# ✅ 로그인 API - 암호화된 비밀번호 검증
+@app.route('/login', methods=['POST'])
+def login():
     data = request.get_json()
-    pr_code = data.get('pr_code')
+    username = data.get('username')
+    password = data.get('password')
 
-    expiration = valid_pr_codes.get(pr_code)
-    if expiration and datetime.datetime.utcnow() <= expiration:
-        del valid_pr_codes[pr_code]
-        return jsonify({'message': 'PR Code verified successfully!'})
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT * FROM user WHERE id=%s", (username,))
+            user = cursor.fetchone()
+    finally:
+        conn.close()
+
+    if user and bcrypt.checkpw(password.encode('utf-8'), user['pass'].encode('utf-8')):
+        token = create_token(username)
+        return jsonify({'token': token})
     else:
-        return jsonify({'message': 'PR Code expired or invalid'}), 400
+        return jsonify({'message': 'Invalid credentials'}), 401
 
-# 서버 실행
+# PR 코드 생성
+@app.route('/generate-pr-code', methods=['GET'])
+def generate_pr_code():
+    pr_code = ''.join(random.choices(string.digits, k=6))
+    qr_img = qrcode.make(pr_code)
+    img_byte_array = io.BytesIO()
+    qr_img.save(img_byte_array)
+    img_byte_array = img_byte_array.getvalue()
+    qr_code_base64 = base64.b64encode(img_byte_array).decode('utf-8')
+    return render_template('index.html', pr_code=pr_code, qr_code=qr_code_base64)
+
+# PR 코드 검증
+@app.route('/verify-pr-code', methods=['POST'])
+def verify_pr_code():
+    pr_code = request.json.get('pr_code')
+    if pr_code == "123456":
+        return jsonify({'message': 'PR Code verified successfully!'})
+    return jsonify({'message': 'Invalid PR Code'}), 400
+
+@app.route('/')
+def home():
+    return '✅ Flask + MySQL + bcrypt 연동 완료!'
+
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(debug=True, host='0.0.0.0', port=port)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)

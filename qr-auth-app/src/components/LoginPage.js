@@ -10,15 +10,22 @@ function LoginPage() {
   const navigate = useNavigate();
 
   const handleLogin = async () => {
+    if (!username || !password) {
+      setError('아이디와 비밀번호를 모두 입력해주세요.');
+      setTimeout(() => setError(false), 3000);
+      return;
+    }
+
     try {
       const response = await axios.post(`${API}/login`, { username, password });
       localStorage.setItem('token', response.data.token);
       alert("로그인 성공! 이동합니다");
       navigate('/dashboard');
     } catch (err) {
-      console.error("로그인 실패:", err.response?.data || err.message);
-      setError(true);
-      setTimeout(() => setError(false), 2000);
+      const msg = err.response?.data?.message || '서버 오류';
+      console.error("로그인 실패:", msg);
+      setError(msg);
+      setTimeout(() => setError(false), 3000);
     }
   };
 
@@ -40,7 +47,7 @@ function LoginPage() {
       />
       <button style={styles.button} onClick={handleLogin}>로그인</button>
       <button style={styles.button} onClick={() => navigate('/signup')}>회원가입</button>
-      {error && <p style={{ color: 'red' }}>잘못된 정보입니다</p>}
+      {error && <p style={{ color: 'red' }}>{error}</p>}
     </div>
   );
 }
