@@ -21,8 +21,8 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-# JWT 시크릿 키
-SECRET_KEY = 'your_secret_key'
+# JWT 시크릿 키 (환경변수에서 불러오기, 기본값은 fallback)
+SECRET_KEY = os.getenv('SECRET_KEY', 'fallback_secret_key')
 
 # MySQL 연결 (Railway 기준)
 conn = pymysql.connect(
