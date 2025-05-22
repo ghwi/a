@@ -1,17 +1,34 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PR Code Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+        img {
+            margin-top: 20px;
+        }
+    </style>
 </head>
 <body>
-    <h1>PR Code Generator</h1>
+    <h1>PR 코드 생성기</h1>
     {% if pr_code %}
-        <p>Generated PR Code: {{ pr_code }}</p>
+        <p><strong>생성된 PR 코드:</strong> {{ pr_code }}</p>
         <img src="data:image/png;base64,{{ qr_code }}" alt="QR Code"/>
+        <br><br>
+        <button onclick="window.location.href='/generate-pr-code'">새 코드 생성</button>
     {% else %}
-        <button onclick="window.location.href='/generate-pr-code'">Generate PR Code</button>
+        <p>아직 생성된 코드가 없습니다.</p>
+        <button onclick="window.location.href='/generate-pr-code'">PR 코드 생성</button>
     {% endif %}
 </body>
 </html>

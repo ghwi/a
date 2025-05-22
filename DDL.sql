@@ -4,9 +4,9 @@ drop table if exists user;
 create table user
 (
    num  int auto_increment PRIMARY KEY,
-   id varchar(20) NOT NULL,
-   pass varchar(20) NOT NULL,
-   name varchar(20) NOT NULL,
+   id varchar(255) NOT NULL,
+   pass varchar(255) NOT NULL,
+   name varchar(255) NOT NULL,
    age int not null
 );
 
