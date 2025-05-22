@@ -74,7 +74,7 @@ def login():
     password = data.get('password')
 
     with conn.cursor() as cursor:
-        sql = "SELECT * FROM user WHERE id=%s AND pass=%s"
+        sql = "SELECT * FROM users WHERE id=%s AND pass=%s"
         cursor.execute(sql, (username, password))
         user = cursor.fetchone()
 
@@ -97,11 +97,11 @@ def signup():
         return jsonify({'message': 'All fields are required'}), 400
 
     with conn.cursor() as cursor:
-        cursor.execute("SELECT * FROM user WHERE id=%s", (username,))
+        cursor.execute("SELECT * FROM users WHERE id=%s", (username,))
         if cursor.fetchone():
             return jsonify({'message': 'Username already exists'}), 400
 
-        sql = "INSERT INTO user (id, pass, name, age) VALUES (%s, %s, %s, %s)"
+        sql = "INSERT INTO users (id, pass, name, age) VALUES (%s, %s, %s, %s)"
         cursor.execute(sql, (username, password, name, age))
         conn.commit()
 
