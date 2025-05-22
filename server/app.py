@@ -12,6 +12,10 @@ import string
 import qrcode
 import io
 import base64
+from dotenv import load_dotenv
+
+# .env 환경변수 로드
+load_dotenv()
 
 # Flask 앱 초기화
 app = Flask(__name__)
@@ -20,12 +24,13 @@ CORS(app)
 # JWT 시크릿 키
 SECRET_KEY = 'your_secret_key'
 
-# MySQL 연결
+# MySQL 연결 (Railway 기준)
 conn = pymysql.connect(
-    host='localhost',
-    user='root',
-    password='1234',
-    database='wb39',
+    host=os.getenv('DB_HOST', 'mysql.railway.internal'),
+    user=os.getenv('DB_USER', 'root'),
+    password=os.getenv('DB_PASSWORD'),
+    database=os.getenv('DB_NAME', 'railway'),
+    port=int(os.getenv('DB_PORT', 3306)),
     charset='utf8mb4',
     cursorclass=pymysql.cursors.DictCursor
 )
@@ -44,7 +49,7 @@ def token_required(f):
         if 'Authorization' in request.headers:
             auth_header = request.headers['Authorization']
             if auth_header.startswith("Bearer "):
-                token = auth_header[7:]  # "Bearer " 제거 후 토큰
+                token = auth_header[7:]
 
         if not token:
             return jsonify({'message': 'Token is missing!'}), 401
@@ -99,19 +104,17 @@ def signup():
 
     return jsonify({'message': 'User created successfully'}), 201
 
-
-# PR 코드 임시 저장소 (메모리) - 유효시간 포함
+# PR 코드 임시 저장소
 valid_pr_codes = {}  # {pr_code: expiration_datetime}
 
-# PR 코드 생성 API (로그인 필요)
+# PR 코드 생성 API
 @app.route('/generate-pr-code', methods=['GET'])
 @token_required
 def generate_pr_code(current_user):
     pr_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-    expiration = datetime.datetime.utcnow() + datetime.timedelta(minutes=3)  # 5분 유효시간
+    expiration = datetime.datetime.utcnow() + datetime.timedelta(minutes=3)
     valid_pr_codes[pr_code] = expiration
 
-    # QR 코드 이미지 생성
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
     qr.add_data(pr_code)
     qr.make(fit=True)
@@ -123,7 +126,7 @@ def generate_pr_code(current_user):
 
     return jsonify({'pr_code': pr_code, 'qr_code': img_str})
 
-# PR 코드 검증 API (로그인 필요)
+# PR 코드 검증 API
 @app.route('/verify-pr-code', methods=['POST'])
 @token_required
 def verify_pr_code(current_user):
@@ -132,7 +135,7 @@ def verify_pr_code(current_user):
 
     expiration = valid_pr_codes.get(pr_code)
     if expiration and datetime.datetime.utcnow() <= expiration:
-        del valid_pr_codes[pr_code]  # 재사용 방지
+        del valid_pr_codes[pr_code]
         return jsonify({'message': 'PR Code verified successfully!'})
     else:
         return jsonify({'message': 'PR Code expired or invalid'}), 400
