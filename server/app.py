@@ -1,5 +1,3 @@
-# app.py
-
 import os
 from flask import Flask, request, jsonify
 import jwt
@@ -34,6 +32,11 @@ conn = pymysql.connect(
     charset='utf8mb4',
     cursorclass=pymysql.cursors.DictCursor
 )
+
+# ✅ 루트 경로 라우터 추가
+@app.route('/')
+def index():
+    return '✅ Flask API 서버가 정상 작동 중입니다!'
 
 # JWT 토큰 생성 함수
 def create_token(username):
