@@ -11,14 +11,11 @@ import qrcode
 import io
 import base64
 
-# .env 파일 로드
 load_dotenv()
 
-# Flask 앱 설정
 app = Flask(__name__)
 CORS(app)
 
-# SQLAlchemy DB 연결 설정
 app.config['SQLALCHEMY_DATABASE_URI'] = (
     f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
     f"@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
@@ -28,7 +25,6 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 
 db = SQLAlchemy(app)
 
-# DB 모델 정의
 class User(db.Model):
     __tablename__ = 'users'
     num = db.Column(db.Integer, primary_key=True)
@@ -42,13 +38,11 @@ class PRCode(db.Model):
     code = db.Column(db.String(100), primary_key=True)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
-# JWT 토큰 생성 함수
 def create_token(username):
     expiration = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
     token = jwt.encode({'username': username, 'exp': expiration}, SECRET_KEY, algorithm='HS256')
     return token
 
-# 회원가입
 @app.route('/signup', methods=['POST'])
 def signup():
     data = request.get_json()
@@ -66,7 +60,6 @@ def signup():
 
     return jsonify({'message': 'User created successfully'}), 201
 
-# 로그인
 @app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
@@ -79,7 +72,6 @@ def login():
         return jsonify({'token': token})
     return jsonify({'message': 'Invalid credentials'}), 401
 
-# QR 코드 생성
 @app.route('/generate-pr-code', methods=['GET'])
 def generate_pr_code():
     pr_code = ''.join(random.choices(string.digits, k=6))
@@ -93,7 +85,6 @@ def generate_pr_code():
 
     return render_template('index.html', pr_code=pr_code, qr_code=qr_code_base64)
 
-# QR 코드 인증
 @app.route('/verify-pr-code', methods=['POST'])
 def verify_pr_code():
     pr_code = request.json.get('pr_code')
@@ -103,12 +94,10 @@ def verify_pr_code():
         return jsonify({'message': 'PR Code verified successfully!'})
     return jsonify({'message': 'Invalid PR Code'}), 400
 
-# 기본 라우트
 @app.route('/')
 def home():
     return 'Welcome to the PR Code Generator!'
 
-# 앱 실행
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
