@@ -1,20 +1,21 @@
+// App.js
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import LoginPage from './components/LoginPage';
-import SignupPage from './components/SignupPage';
-import Dashboard from './components/Dashboard';
-import QRScanner from './components/QRScanner';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
+import Dashboard from './pages/Dashboard';
+import QRScanner from './pages/QRScanner';
 
 function App() {
   return (
-    <Router>
+    <BrowserRouter>
       <Routes>
         <Route path="/" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/scan" element={<QRScanner />} />
       </Routes>
-    </Router>
+    </BrowserRouter>
   );
 }
 

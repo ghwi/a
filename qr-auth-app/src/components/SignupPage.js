@@ -3,47 +3,41 @@ import axios from 'axios';
 import API from '../api';
 import { useNavigate } from 'react-router-dom';
 
-function LoginPage() {
+function SignupPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState(false);
+  const [name, setName] = useState('');
+  const [age, setAge] = useState('');
   const navigate = useNavigate();
 
-  const handleLogin = async () => {
+  const handleSignup = async () => {
     try {
-      const response = await axios.post(`${API}/login`, {
+      const response = await axios.post(`${API}/signup`, {
         username,
         password,
+        name,
+        age: parseInt(age),
       });
 
-      localStorage.setItem('token', response.data.token);
-      alert('로그인 성공!');
-      navigate('/dashboard');
+      if (response.status === 201) {
+        alert('가입 성공!');
+        navigate('/');
+      }
     } catch (err) {
-      setError(true);
-      setTimeout(() => setError(false), 2000);
+      alert('이미 존재하는 아이디입니다.');
     }
   };
 
   return (
     <div style={{ textAlign: 'center', marginTop: '80px' }}>
-      <h2>로그인</h2>
-      <input
-        placeholder="아이디"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-      /><br /><br />
-      <input
-        placeholder="비밀번호"
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      /><br /><br />
-      <button onClick={handleLogin}>로그인</button>
-      <button onClick={() => navigate('/signup')}>회원가입</button>
-      {error && <p style={{ color: 'red' }}>잘못된 정보입니다</p>}
+      <h2>회원가입</h2>
+      <input placeholder="아이디" value={username} onChange={(e) => setUsername(e.target.value)} /><br /><br />
+      <input placeholder="비밀번호" type="password" value={password} onChange={(e) => setPassword(e.target.value)} /><br /><br />
+      <input placeholder="이름" value={name} onChange={(e) => setName(e.target.value)} /><br /><br />
+      <input placeholder="나이" type="number" value={age} onChange={(e) => setAge(e.target.value)} /><br /><br />
+      <button onClick={handleSignup}>가입하기</button>
     </div>
   );
 }
 
-export default LoginPage;
+export default SignupPage;
