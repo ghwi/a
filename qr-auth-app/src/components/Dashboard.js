@@ -10,14 +10,14 @@ function Dashboard() {
 
   const verifyPrCode = async () => {
     try {
-      const token = localStorage.getItem('token'); // 토큰 불러오기
+      const token = localStorage.getItem('token');
 
       const response = await axios.post(
         `${API}/verify-pr-code`,
         { pr_code: prCode },
         {
           headers: {
-            Authorization: `Bearer ${token}`, // 토큰 헤더에 넣기
+            Authorization: `Bearer ${token}`,
           },
         }
       );

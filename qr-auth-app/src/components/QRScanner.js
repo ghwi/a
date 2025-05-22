@@ -1,50 +1,40 @@
 import React, { useEffect } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import axios from 'axios';
-import API from '../api'; 
+import API from '../api';
 
 function QRScanner() {
   useEffect(() => {
-    const scanner = new Html5QrcodeScanner(
-      'reader',
-      {
-        fps: 10,
-        qrbox: 250,
-      },
-      false
-    );
+    const scanner = new Html5QrcodeScanner('reader', { fps: 10, qrbox: 250 }, false);
 
     scanner.render(
       async (decodedText) => {
-        console.log("QR Code scanned:", decodedText);
-
         try {
-          const token = localStorage.getItem('token'); // 토큰 불러오기
+          const token = localStorage.getItem('token');
 
           const response = await axios.post(
             `${API}/verify-pr-code`,
             { pr_code: decodedText },
             {
               headers: {
-                Authorization: `Bearer ${token}`, // 토큰 헤더에 넣기
+                Authorization: `Bearer ${token}`,
               },
             }
           );
 
-          if (response.data.message === "PR Code verified successfully!") {
-            alert("✅ 잠금 해제 완료!");
+          if (response.data.message === 'PR Code verified successfully!') {
+            alert('✅ 잠금 해제 완료!');
           } else {
-            alert("❌ 인증 실패: 올바르지 않은 코드입니다.");
+            alert('❌ 인증 실패: 올바르지 않은 코드입니다.');
           }
         } catch (error) {
-          console.error("Error verifying PR Code:", error);
-          alert("❌ 서버 오류");
+          alert('❌ 서버 오류');
         }
 
-        scanner.clear(); 
+        scanner.clear();
       },
       (error) => {
-        console.warn("QR Code scan error:", error);
+        console.warn('QR Code scan error:', error);
       }
     );
   }, []);

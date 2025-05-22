@@ -2,6 +2,7 @@ import os
 from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+from dotenv import load_dotenv
 import jwt
 import datetime
 import random
@@ -9,17 +10,17 @@ import string
 import qrcode
 import io
 import base64
-from dotenv import load_dotenv
 
+# 환경변수 로드
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 
-# 환경변수 설정
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
-app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql+pymysql://{os.environ.get('DB_USER')}:{os.environ.get('DB_PASSWORD')}@{os.environ.get('DB_HOST')}:{os.environ.get('DB_PORT')}/{os.environ.get('DB_NAME')}"
+# 환경변수로부터 설정
+app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+SECRET_KEY = os.getenv("SECRET_KEY")
 
 db = SQLAlchemy(app)
 
@@ -27,20 +28,40 @@ db = SQLAlchemy(app)
 class User(db.Model):
     __tablename__ = 'user'
     num = db.Column(db.Integer, primary_key=True)
-    id = db.Column(db.String(100), unique=True, nullable=False)
-    pass_field = db.Column('pass', db.String(100), nullable=False)  # 'pass'는 예약어라 내부 필드명만 바꿈
+    id = db.Column(db.String(45), unique=True, nullable=False)
+    pass_field = db.Column("pass", db.String(45), nullable=False)
+    name = db.Column(db.String(45))
+    age = db.Column(db.Integer)  # 🔹 나이 필드 추가
 
-# PR 코드 저장용 테이블
+# PR 코드 모델
 class PRCode(db.Model):
     __tablename__ = 'pr_codes'
     code = db.Column(db.String(10), primary_key=True)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
-# JWT 생성
+# JWT 토큰 생성
 def create_token(username):
     expiration = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
-    token = jwt.encode({'username': username, 'exp': expiration}, app.config['SECRET_KEY'], algorithm='HS256')
+    token = jwt.encode({'username': username, 'exp': expiration}, SECRET_KEY, algorithm='HS256')
     return token
+
+# 회원가입
+@app.route('/signup', methods=['POST'])
+def signup():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    name = data.get('name')
+    age = data.get('age')
+
+    if User.query.filter_by(id=username).first():
+        return jsonify({'message': 'Username already exists'}), 400
+
+    new_user = User(id=username, pass_field=password, name=name, age=age)
+    db.session.add(new_user)
+    db.session.commit()
+
+    return jsonify({'message': 'User created successfully'}), 201
 
 # 로그인
 @app.route('/login', methods=['POST'])
@@ -49,55 +70,44 @@ def login():
     username = data.get('username')
     password = data.get('password')
 
-    user = User.query.filter_by(id=username).first()
-    if user and user.pass_field == password:
+    user = User.query.filter_by(id=username, pass_field=password).first()
+    if user:
         token = create_token(username)
         return jsonify({'token': token})
     return jsonify({'message': 'Invalid credentials'}), 401
 
-# 회원가입
-@app.route('/signup', methods=['POST'])
-def signup():
-    data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
-
-    if User.query.filter_by(id=username).first():
-        return jsonify({'message': 'Username already exists'}), 400
-
-    new_user = User(id=username, pass_field=password)
-    db.session.add(new_user)
-    db.session.commit()
-    return jsonify({'message': 'User created successfully'}), 201
-
-# QR 코드 생성
+# QR(PR) 코드 생성
 @app.route('/generate-pr-code', methods=['GET'])
 def generate_pr_code():
     pr_code = ''.join(random.choices(string.digits, k=6))
+
+    # DB에 저장
+    db.session.add(PRCode(code=pr_code))
+    db.session.commit()
 
     qr_img = qrcode.make(pr_code)
     img_byte_array = io.BytesIO()
     qr_img.save(img_byte_array)
     qr_code_base64 = base64.b64encode(img_byte_array.getvalue()).decode('utf-8')
 
-    db.session.add(PRCode(code=pr_code))
-    db.session.commit()
-
     return render_template('index.html', pr_code=pr_code, qr_code=qr_code_base64)
 
-# PR 코드 확인
+# PR 코드 인증
 @app.route('/verify-pr-code', methods=['POST'])
 def verify_pr_code():
     pr_code = request.json.get('pr_code')
-
     code_entry = PRCode.query.filter_by(code=pr_code).first()
+
     if code_entry:
         return jsonify({'message': 'PR Code verified successfully!'})
     return jsonify({'message': 'Invalid PR Code'}), 400
 
+# 루트
 @app.route('/')
 def home():
     return 'Welcome to the PR Code Generator!'
 
 if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))

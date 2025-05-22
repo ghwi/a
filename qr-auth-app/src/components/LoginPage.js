@@ -10,22 +10,16 @@ function LoginPage() {
   const navigate = useNavigate();
 
   const handleLogin = async () => {
-    console.log("입력한 정보:", { username, password }); 
-
     try {
       const response = await axios.post(`${API}/login`, {
         username,
         password,
       });
 
-      console.log("서버 응답:", response.data); 
-
-      localStorage.setItem('token', response.data.token); 
-      alert("로그인 성공! 이동합니다"); 
-      navigate('/dashboard'); 
-      
+      localStorage.setItem('token', response.data.token);
+      alert('로그인 성공!');
+      navigate('/dashboard');
     } catch (err) {
-      console.log("로그인 실패:", err.response?.data || err.message); 
       setError(true);
       setTimeout(() => setError(false), 2000);
     }
