@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import API from './api';
+import API from '../api';
 
 function SignUpPage() {
   const [form, setForm] = useState({ username: '', password: '', name: '', age: '' });
