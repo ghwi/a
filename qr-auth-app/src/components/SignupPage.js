@@ -3,93 +3,35 @@ import axios from 'axios';
 import API from '../api';
 import { useNavigate } from 'react-router-dom';
 
-function SignUpPage() {
-  const [form, setForm] = useState({ username: '', password: '', name: '', age: '' });
-  const [error, setError] = useState('');
+function SignupPage() {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const navigate = useNavigate();
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-
-  const handleSubmit = async () => {
-    const { username, password, name, age } = form;
-
-    // 유효성 검사
-    if (!username || !password || !name || !age) {
-      setError('모든 항목을 입력해주세요.');
-      setTimeout(() => setError(''), 3000);
-      return;
-    }
-
+  const handleSignup = async () => {
     try {
-      await axios.post(`${API}/signup`, form);
-      alert('회원가입 성공!');
-      navigate('/');
+      const response = await axios.post(`${API}/signup`, {
+        username,
+        password,
+      });
+  
+      if (response.status === 201) {
+        alert('가입 성공!');
+        navigate('/');
+      }
     } catch (err) {
-      const msg = err.response?.data?.message || '서버 오류';
-      setError(msg);
-      setTimeout(() => setError(''), 3000);
+      alert('이미 존재하는 아이디입니다.');
     }
   };
 
   return (
-    <div style={styles.container}>
+    <div style={{ textAlign: 'center', marginTop: '80px' }}>
       <h2>회원가입</h2>
-      <input
-        style={styles.input}
-        name="username"
-        placeholder="아이디"
-        value={form.username}
-        onChange={handleChange}
-      />
-      <input
-        style={styles.input}
-        name="password"
-        type="password"
-        placeholder="비밀번호"
-        value={form.password}
-        onChange={handleChange}
-      />
-      <input
-        style={styles.input}
-        name="name"
-        placeholder="이름"
-        value={form.name}
-        onChange={handleChange}
-      />
-      <input
-        style={styles.input}
-        name="age"
-        type="number"
-        placeholder="나이"
-        value={form.age}
-        onChange={handleChange}
-      />
-      <button style={styles.button} onClick={handleSubmit}>회원가입</button>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      <input placeholder="아이디" value={username} onChange={(e) => setUsername(e.target.value)} /><br /><br />
+      <input placeholder="비밀번호" type="password" value={password} onChange={(e) => setPassword(e.target.value)} /><br /><br />
+      <button onClick={handleSignup}>가입하기</button>
     </div>
   );
 }
 
-const styles = {
-  container: {
-    textAlign: 'center',
-    marginTop: '80px'
-  },
-  input: {
-    display: 'block',
-    margin: '10px auto',
-    padding: '10px',
-    width: '250px',
-    fontSize: '16px'
-  },
-  button: {
-    marginTop: '20px',
-    padding: '10px 20px',
-    fontSize: '16px',
-    cursor: 'pointer'
-  }
-};
-
-export default SignUpPage;
+export default SignupPage;

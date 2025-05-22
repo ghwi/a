@@ -1,5 +1,7 @@
 import os
 from flask import Flask, request, jsonify, render_template
+from flask_sqlalchemy import SQLAlchemy
+from flask_cors import CORS
 import jwt
 import datetime
 import random
@@ -7,107 +9,95 @@ import string
 import qrcode
 import io
 import base64
-import pymysql
-from flask_cors import CORS
 from dotenv import load_dotenv
-import bcrypt  # ✅ 추가
 
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 
-SECRET_KEY = os.getenv("SECRET_KEY", "your_fallback_secret_key")
+# 환경변수 설정
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
+app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql+pymysql://{os.environ.get('DB_USER')}:{os.environ.get('DB_PASSWORD')}@{os.environ.get('DB_HOST')}:{os.environ.get('DB_PORT')}/{os.environ.get('DB_NAME')}"
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-def get_db_connection():
-    return pymysql.connect(
-        host=os.getenv("DB_HOST"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-        db=os.getenv("DB_NAME"),
-        port=int(os.getenv("DB_PORT", 3306)),
-        charset='utf8mb4',
-        cursorclass=pymysql.cursors.DictCursor
-    )
+db = SQLAlchemy(app)
 
+# 사용자 모델
+class User(db.Model):
+    __tablename__ = 'user'
+    num = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.String(100), unique=True, nullable=False)
+    pass_field = db.Column('pass', db.String(100), nullable=False)  # 'pass'는 예약어라 내부 필드명만 바꿈
+
+# PR 코드 저장용 테이블
+class PRCode(db.Model):
+    __tablename__ = 'pr_codes'
+    code = db.Column(db.String(10), primary_key=True)
+    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+# JWT 생성
 def create_token(username):
     expiration = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
-    token = jwt.encode({'username': username, 'exp': expiration}, SECRET_KEY, algorithm='HS256')
+    token = jwt.encode({'username': username, 'exp': expiration}, app.config['SECRET_KEY'], algorithm='HS256')
     return token
 
-# ✅ 회원가입 API - 비밀번호 암호화 추가
-@app.route('/signup', methods=['POST'])
-def signup():
-    data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
-    name = data.get('name')
-    age = data.get('age')
-
-    if not all([username, password, name, age]):
-        return jsonify({'message': 'All fields are required'}), 400
-
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT * FROM user WHERE id=%s", (username,))
-            if cursor.fetchone():
-                return jsonify({'message': 'Username already exists'}), 400
-
-            # 비밀번호 암호화
-            hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-
-            sql = "INSERT INTO user (id, pass, name, age) VALUES (%s, %s, %s, %s)"
-            cursor.execute(sql, (username, hashed_password, name, age))
-            conn.commit()
-    finally:
-        conn.close()
-
-    return jsonify({'message': 'User created successfully'}), 201
-
-# ✅ 로그인 API - 암호화된 비밀번호 검증
+# 로그인
 @app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
 
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT * FROM user WHERE id=%s", (username,))
-            user = cursor.fetchone()
-    finally:
-        conn.close()
-
-    if user and bcrypt.checkpw(password.encode('utf-8'), user['pass'].encode('utf-8')):
+    user = User.query.filter_by(id=username).first()
+    if user and user.pass_field == password:
         token = create_token(username)
         return jsonify({'token': token})
-    else:
-        return jsonify({'message': 'Invalid credentials'}), 401
+    return jsonify({'message': 'Invalid credentials'}), 401
 
-# PR 코드 생성
+# 회원가입
+@app.route('/signup', methods=['POST'])
+def signup():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+
+    if User.query.filter_by(id=username).first():
+        return jsonify({'message': 'Username already exists'}), 400
+
+    new_user = User(id=username, pass_field=password)
+    db.session.add(new_user)
+    db.session.commit()
+    return jsonify({'message': 'User created successfully'}), 201
+
+# QR 코드 생성
 @app.route('/generate-pr-code', methods=['GET'])
 def generate_pr_code():
     pr_code = ''.join(random.choices(string.digits, k=6))
+
     qr_img = qrcode.make(pr_code)
     img_byte_array = io.BytesIO()
     qr_img.save(img_byte_array)
-    img_byte_array = img_byte_array.getvalue()
-    qr_code_base64 = base64.b64encode(img_byte_array).decode('utf-8')
+    qr_code_base64 = base64.b64encode(img_byte_array.getvalue()).decode('utf-8')
+
+    db.session.add(PRCode(code=pr_code))
+    db.session.commit()
+
     return render_template('index.html', pr_code=pr_code, qr_code=qr_code_base64)
 
-# PR 코드 검증
+# PR 코드 확인
 @app.route('/verify-pr-code', methods=['POST'])
 def verify_pr_code():
     pr_code = request.json.get('pr_code')
-    if pr_code == "123456":
+
+    code_entry = PRCode.query.filter_by(code=pr_code).first()
+    if code_entry:
         return jsonify({'message': 'PR Code verified successfully!'})
     return jsonify({'message': 'Invalid PR Code'}), 400
 
 @app.route('/')
 def home():
-    return '✅ Flask + MySQL + bcrypt 연동 완료!'
+    return 'Welcome to the PR Code Generator!'
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))

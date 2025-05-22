@@ -10,66 +10,46 @@ function LoginPage() {
   const navigate = useNavigate();
 
   const handleLogin = async () => {
-    if (!username || !password) {
-      setError('아이디와 비밀번호를 모두 입력해주세요.');
-      setTimeout(() => setError(false), 3000);
-      return;
-    }
+    console.log("입력한 정보:", { username, password }); 
 
     try {
-      const response = await axios.post(`${API}/login`, { username, password });
-      localStorage.setItem('token', response.data.token);
-      alert("로그인 성공! 이동합니다");
-      navigate('/dashboard');
+      const response = await axios.post(`${API}/login`, {
+        username,
+        password,
+      });
+
+      console.log("서버 응답:", response.data); 
+
+      localStorage.setItem('token', response.data.token); 
+      alert("로그인 성공! 이동합니다"); 
+      navigate('/dashboard'); 
+      
     } catch (err) {
-      const msg = err.response?.data?.message || '서버 오류';
-      console.error("로그인 실패:", msg);
-      setError(msg);
-      setTimeout(() => setError(false), 3000);
+      console.log("로그인 실패:", err.response?.data || err.message); 
+      setError(true);
+      setTimeout(() => setError(false), 2000);
     }
   };
 
   return (
-    <div style={styles.container}>
+    <div style={{ textAlign: 'center', marginTop: '80px' }}>
       <h2>로그인</h2>
       <input
-        style={styles.input}
         placeholder="아이디"
         value={username}
         onChange={(e) => setUsername(e.target.value)}
-      />
+      /><br /><br />
       <input
-        style={styles.input}
-        type="password"
         placeholder="비밀번호"
+        type="password"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
-      />
-      <button style={styles.button} onClick={handleLogin}>로그인</button>
-      <button style={styles.button} onClick={() => navigate('/signup')}>회원가입</button>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      /><br /><br />
+      <button onClick={handleLogin}>로그인</button>
+      <button onClick={() => navigate('/signup')}>회원가입</button>
+      {error && <p style={{ color: 'red' }}>잘못된 정보입니다</p>}
     </div>
   );
 }
-
-const styles = {
-  container: {
-    textAlign: 'center',
-    marginTop: '80px'
-  },
-  input: {
-    display: 'block',
-    margin: '10px auto',
-    padding: '10px',
-    width: '250px',
-    fontSize: '16px'
-  },
-  button: {
-    margin: '10px 5px',
-    padding: '10px 20px',
-    fontSize: '16px',
-    cursor: 'pointer'
-  }
-};
 
 export default LoginPage;
