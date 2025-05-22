@@ -1,27 +1,62 @@
-import os  # os 모듈 추가
-from flask import Flask, render_template, request, jsonify
+# app.py
+
+import os
+from flask import Flask, request, jsonify
 import jwt
 import datetime
+import pymysql
+from flask_cors import CORS
+from functools import wraps
 import random
 import string
 import qrcode
 import io
 import base64
 
-from flask_cors import CORS 
-
+# Flask 앱 초기화
 app = Flask(__name__)
-CORS(app)  
+CORS(app)
+
+# JWT 시크릿 키
 SECRET_KEY = 'your_secret_key'
 
-# 임시 사용자 데이터 (DB는 나중에 추가)
-users = {'test': {'password': '1234'}}  # 아이디와 비밀번호를 1234로 설정
+# MySQL 연결
+conn = pymysql.connect(
+    host='localhost',
+    user='root',
+    password='1234',
+    database='wb39',
+    charset='utf8mb4',
+    cursorclass=pymysql.cursors.DictCursor
+)
 
 # JWT 토큰 생성 함수
 def create_token(username):
     expiration = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
     token = jwt.encode({'username': username, 'exp': expiration}, SECRET_KEY, algorithm='HS256')
     return token
+
+# JWT 토큰 검증 데코레이터
+def token_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        token = None
+        if 'Authorization' in request.headers:
+            auth_header = request.headers['Authorization']
+            if auth_header.startswith("Bearer "):
+                token = auth_header[7:]  # "Bearer " 제거 후 토큰
+
+        if not token:
+            return jsonify({'message': 'Token is missing!'}), 401
+
+        try:
+            data = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+            current_user = data['username']
+        except Exception:
+            return jsonify({'message': 'Token is invalid or expired!'}), 401
+
+        return f(current_user, *args, **kwargs)
+    return decorated
 
 # 로그인 API
 @app.route('/login', methods=['POST'])
@@ -30,11 +65,16 @@ def login():
     username = data.get('username')
     password = data.get('password')
 
-    # 사용자 이름과 비밀번호 확인
-    if username in users and users[username]['password'] == password:
-        token = create_token(username)  # JWT 토큰 생성
-        return jsonify({'token': token})  # 로그인 성공 시 토큰 반환
-    return jsonify({'message': 'Invalid credentials'}), 401  # 로그인 실패 시 오류 메시지 반환
+    with conn.cursor() as cursor:
+        sql = "SELECT * FROM user WHERE id=%s AND pass=%s"
+        cursor.execute(sql, (username, password))
+        user = cursor.fetchone()
+
+    if user:
+        token = create_token(username)
+        return jsonify({'token': token})
+    else:
+        return jsonify({'message': 'Invalid credentials'}), 401
 
 # 회원가입 API
 @app.route('/signup', methods=['POST'])
@@ -42,44 +82,61 @@ def signup():
     data = request.get_json()
     username = data.get('username')
     password = data.get('password')
+    name = data.get('name')
+    age = data.get('age')
 
-    print("현재 users:", users)  
+    if not all([username, password, name, age]):
+        return jsonify({'message': 'All fields are required'}), 400
 
-    if username in users:
-        return jsonify({'message': 'Username already exists'}), 400
+    with conn.cursor() as cursor:
+        cursor.execute("SELECT * FROM user WHERE id=%s", (username,))
+        if cursor.fetchone():
+            return jsonify({'message': 'Username already exists'}), 400
 
-    users[username] = {'password': password}
+        sql = "INSERT INTO user (id, pass, name, age) VALUES (%s, %s, %s, %s)"
+        cursor.execute(sql, (username, password, name, age))
+        conn.commit()
+
     return jsonify({'message': 'User created successfully'}), 201
 
-# PR 코드 생성 API
+
+# PR 코드 임시 저장소 (메모리) - 유효시간 포함
+valid_pr_codes = {}  # {pr_code: expiration_datetime}
+
+# PR 코드 생성 API (로그인 필요)
 @app.route('/generate-pr-code', methods=['GET'])
-def generate_pr_code():
-    # 임시로 PR 코드를 생성
-    pr_code = ''.join(random.choices(string.digits, k=6))
-    
-    # QR 코드 생성
-    qr_img = qrcode.make(pr_code)
-    img_byte_array = io.BytesIO()
-    qr_img.save(img_byte_array)
-    img_byte_array = img_byte_array.getvalue()
-    qr_code_base64 = base64.b64encode(img_byte_array).decode('utf-8')
-    
-    # HTML 렌더링 시 PR 코드와 QR 코드 전달
-    return render_template('index.html', pr_code=pr_code, qr_code=qr_code_base64)
+@token_required
+def generate_pr_code(current_user):
+    pr_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+    expiration = datetime.datetime.utcnow() + datetime.timedelta(minutes=3)  # 5분 유효시간
+    valid_pr_codes[pr_code] = expiration
 
-# PR 코드 확인 API
+    # QR 코드 이미지 생성
+    qr = qrcode.QRCode(version=1, box_size=10, border=5)
+    qr.add_data(pr_code)
+    qr.make(fit=True)
+
+    img = qr.make_image(fill='black', back_color='white')
+    buffered = io.BytesIO()
+    img.save(buffered, format="PNG")
+    img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
+
+    return jsonify({'pr_code': pr_code, 'qr_code': img_str})
+
+# PR 코드 검증 API (로그인 필요)
 @app.route('/verify-pr-code', methods=['POST'])
-def verify_pr_code():
-    pr_code = request.json.get('pr_code')
-    # 여기에 PR 코드 확인 로직을 추가
-    if pr_code == "123456":  # 임시 코드
+@token_required
+def verify_pr_code(current_user):
+    data = request.get_json()
+    pr_code = data.get('pr_code')
+
+    expiration = valid_pr_codes.get(pr_code)
+    if expiration and datetime.datetime.utcnow() <= expiration:
+        del valid_pr_codes[pr_code]  # 재사용 방지
         return jsonify({'message': 'PR Code verified successfully!'})
-    return jsonify({'message': 'Invalid PR Code'}), 400
+    else:
+        return jsonify({'message': 'PR Code expired or invalid'}), 400
 
-# 루트 경로 추가
-@app.route('/')
-def home():
-    return 'Welcome to the PR Code Generator!'
-
+# 서버 실행
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000))) # Flask 서버 실행
+    app.run(debug=True)

@@ -10,7 +10,7 @@ function LoginPage() {
   const navigate = useNavigate();
 
   const handleLogin = async () => {
-    console.log("입력한 정보:", { username, password }); // 디버깅용 로그
+    console.log("입력한 정보:", { username, password }); 
 
     try {
       const response = await axios.post(`${API}/login`, {
@@ -18,14 +18,14 @@ function LoginPage() {
         password,
       });
 
-      console.log("서버 응답:", response.data); // 디버깅용 로그
+      console.log("서버 응답:", response.data); 
 
       localStorage.setItem('token', response.data.token); 
       alert("로그인 성공! 이동합니다"); 
       navigate('/dashboard'); 
       
     } catch (err) {
-      console.log("로그인 실패:", err.response?.data || err.message); // 디버깅용 로그
+      console.log("로그인 실패:", err.response?.data || err.message); 
       setError(true);
       setTimeout(() => setError(false), 2000);
     }

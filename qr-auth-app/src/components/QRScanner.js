@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import axios from 'axios';
-import API from '../api'; // .env에 있는 API 주소 불러오기
+import API from '../api'; 
 
 function QRScanner() {
   useEffect(() => {
@@ -19,9 +19,17 @@ function QRScanner() {
         console.log("QR Code scanned:", decodedText);
 
         try {
-          const response = await axios.post(`${API}/verify-pr-code`, {
-            pr_code: decodedText,
-          });
+          const token = localStorage.getItem('token'); // 토큰 불러오기
+
+          const response = await axios.post(
+            `${API}/verify-pr-code`,
+            { pr_code: decodedText },
+            {
+              headers: {
+                Authorization: `Bearer ${token}`, // 토큰 헤더에 넣기
+              },
+            }
+          );
 
           if (response.data.message === "PR Code verified successfully!") {
             alert("✅ 잠금 해제 완료!");
@@ -33,7 +41,7 @@ function QRScanner() {
           alert("❌ 서버 오류");
         }
 
-        scanner.clear(); // 스캔 후 정지
+        scanner.clear(); 
       },
       (error) => {
         console.warn("QR Code scan error:", error);

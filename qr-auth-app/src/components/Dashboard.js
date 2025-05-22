@@ -10,9 +10,18 @@ function Dashboard() {
 
   const verifyPrCode = async () => {
     try {
-      const response = await axios.post(`${API}/verify-pr-code`, {
-        pr_code: prCode,
-      });
+      const token = localStorage.getItem('token'); // 토큰 불러오기
+
+      const response = await axios.post(
+        `${API}/verify-pr-code`,
+        { pr_code: prCode },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // 토큰 헤더에 넣기
+          },
+        }
+      );
+
       setResult(response.data.message);
     } catch (err) {
       setResult('PR 코드 인증 실패');

@@ -1,37 +1,33 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import API from '../api';
-import { useNavigate } from 'react-router-dom';
+import API from './api';
 
-function SignupPage() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const navigate = useNavigate();
+function SignUpPage() {
+  const [form, setForm] = useState({ username: '', password: '', name: '', age: '' });
 
-  const handleSignup = async () => {
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async () => {
     try {
-      const response = await axios.post(`${API}/signup`, {
-        username,
-        password,
-      });
-  
-      if (response.status === 201) {
-        alert('가입 성공!');
-        navigate('/');
-      }
+      await axios.post(`${API}/signup`, form); // res 제거
+      alert('회원가입 성공!');
     } catch (err) {
-      alert('이미 존재하는 아이디입니다.');
+      alert('회원가입 실패: ' + (err.response?.data?.message || '서버 오류'));
     }
   };
 
   return (
-    <div style={{ textAlign: 'center', marginTop: '80px' }}>
+    <div>
       <h2>회원가입</h2>
-      <input placeholder="아이디" value={username} onChange={(e) => setUsername(e.target.value)} /><br /><br />
-      <input placeholder="비밀번호" type="password" value={password} onChange={(e) => setPassword(e.target.value)} /><br /><br />
-      <button onClick={handleSignup}>가입하기</button>
+      <input name="username" placeholder="ID" onChange={handleChange} />
+      <input name="password" type="password" placeholder="비밀번호" onChange={handleChange} />
+      <input name="name" placeholder="이름" onChange={handleChange} />
+      <input name="age" type="number" placeholder="나이" onChange={handleChange} />
+      <button onClick={handleSubmit}>회원가입</button>
     </div>
   );
 }
 
-export default SignupPage;
+export default SignUpPage;
