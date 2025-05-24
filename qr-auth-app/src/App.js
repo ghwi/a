@@ -1,10 +1,10 @@
 // App.js
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import LoginPage from './pages/loginpage';
-import SignupPage from './pages/signuppage';
-import Dashboard from './pages/dashboard';
-import QRScanner from './pages/qrscanner';
+import LoginPage from './components/loginpage';
+import SignupPage from './components/signuppage';
+import Dashboard from './components/dashboard';
+import QRScanner from './components/qrscanner';
 
 function App() {
   return (
