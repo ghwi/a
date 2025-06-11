@@ -31,6 +31,10 @@ class User(db.Model):
     password = db.Column(db.String(255), nullable=False)
     name = db.Column(db.String(100), nullable=False)
     age = db.Column(db.Integer, nullable=False)
+    
+@app.route('/')
+def index():
+    return 'IoT PR 인증 서버가 정상 작동 중입니다.'
 
 # 로그인 API
 @app.route('/login', methods=['POST'])
