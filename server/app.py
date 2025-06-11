@@ -1,125 +1,70 @@
-import os
-import jwt
-import datetime
-import random
-import string
-import qrcode
-import io
-import base64
-
-from flask import Flask, request, jsonify, render_template
-from flask_sqlalchemy import SQLAlchemy
+from flask import Flask, request, jsonify
 from flask_cors import CORS
-from dotenv import load_dotenv
-from flask_socketio import SocketIO
+from flask_sqlalchemy import SQLAlchemy
+from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from flask_socketio import SocketIO, emit
+import os
 
-load_dotenv()
+# 환경 변수 로딩
+DB_HOST = os.environ.get("DB_HOST", "localhost")
+DB_PORT = os.environ.get("DB_PORT", "3306")
+DB_USER = os.environ.get("DB_USER", "iotuser")
+DB_PASSWORD = os.environ.get("DB_PASSWORD", "iotpass123")
+DB_NAME = os.environ.get("DB_NAME", "iotdb")
+SECRET_KEY = os.environ.get("SECRET_KEY", "mysecretkey")
 
+# Flask 초기화
 app = Flask(__name__)
 CORS(app)
+app.config['SECRET_KEY'] = SECRET_KEY
+app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# 확장 기능 초기화
+db = SQLAlchemy(app)
+jwt = JWTManager(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# 환경변수 기반 DB 설정
-app.config['SQLALCHEMY_DATABASE_URI'] = (
-    f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
-    f"@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
-)
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-SECRET_KEY = os.getenv("SECRET_KEY")
-
-db = SQLAlchemy(app)
-
-# ---------- DB 모델 ----------
+# 모델 정의 (예시)
 class User(db.Model):
-    __tablename__ = 'users'
-    num = db.Column(db.Integer, primary_key=True)
-    id = db.Column(db.String(100), unique=True, nullable=False)
-    pass_field = db.Column("pass", db.String(100), nullable=False)
-    name = db.Column(db.String(100))
-    age = db.Column(db.Integer)
+    id = db.Column(db.String(50), primary_key=True)
+    password = db.Column(db.String(255), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    age = db.Column(db.Integer, nullable=False)
 
-class PRCode(db.Model):
-    __tablename__ = 'pr_codes'
-    code = db.Column(db.String(100), primary_key=True)
-    created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
-
-# ---------- JWT ----------
-def create_token(username):
-    expiration = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
-    token = jwt.encode({'username': username, 'exp': expiration}, SECRET_KEY, algorithm='HS256')
-    return token
-
-# ---------- 라우터 ----------
-@app.route('/signup', methods=['POST'])
-def signup():
-    data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
-    name = data.get('name')
-    age = data.get('age')
-
-    if User.query.filter_by(id=username).first():
-        return jsonify({'message': 'Username already exists'}), 400
-
-    new_user = User(id=username, pass_field=password, name=name, age=age)
-    db.session.add(new_user)
-    db.session.commit()
-
-    return jsonify({'message': 'User created successfully'}), 201
-
+# 로그인 API
 @app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
-    username = data.get('username')
-    password = data.get('password')
+    user = User.query.filter_by(id=data['id']).first()
+    if user and user.password == data['password']:
+        access_token = create_access_token(identity=user.id)
+        return jsonify(access_token=access_token), 200
+    return jsonify(msg="Invalid credentials"), 401
 
-    user = User.query.filter_by(id=username, pass_field=password).first()
-    if user:
-        token = create_token(username)
-        return jsonify({'token': token})
-    return jsonify({'message': 'Invalid credentials'}), 401
-
-@app.route('/generate-pr-code', methods=['GET'])
-def generate_pr_code():
-    pr_code = ''.join(random.choices(string.digits, k=6))
-    db.session.add(PRCode(code=pr_code))
-    db.session.commit()
-
-    qr_img = qrcode.make(pr_code)
-    img_byte_array = io.BytesIO()
-    qr_img.save(img_byte_array)
-    qr_code_base64 = base64.b64encode(img_byte_array.getvalue()).decode('utf-8')
-
-    return render_template('index.html', pr_code=pr_code, qr_code=qr_code_base64)
-
-@app.route('/verify-pr-code', methods=['POST'])
-def verify_pr_code():
-    pr_code = request.json.get('pr_code')
-    code_entry = PRCode.query.filter_by(code=pr_code).first()
-
-    if code_entry:
-        # 인증된 PR 코드 소켓으로 알림
-        socketio.emit('pr_verified', {'code': pr_code})
-        db.session.delete(code_entry)
-        db.session.commit()
-        return jsonify({'message': 'PR Code verified successfully!'})
-    return jsonify({'message': 'Invalid PR Code'}), 400
-
-@app.route('/log-url-click', methods=['POST'])
-def log_url_click():
+# 회원가입 API
+@app.route('/signup', methods=['POST'])
+def signup():
     data = request.get_json()
-    url = data.get('url')
-    print(f"[URL 클릭 기록] 사용자가 이동한 URL: {url}")
+    if User.query.filter_by(id=data['id']).first():
+        return jsonify(msg="User already exists"), 409
+    new_user = User(
+        id=data['id'],
+        password=data['password'],
+        name=data['name'],
+        age=data['age']
+    )
+    db.session.add(new_user)
+    db.session.commit()
+    return jsonify(msg="User created"), 201
 
-    # HTML에 URL 선택 Socket 이벤트 전달
-    socketio.emit('url_selected', {'url': url})
+# WebSocket 이벤트 예시
+@socketio.on('connect')
+def handle_connect():
+    print("Client connected")
+    emit('message', {'data': 'Connected to server'})
 
-    return jsonify({'message': '클릭 기록 완료'}), 200
+@socketio.on('disconnect')
+def handle_disconnect():
+    print("Client disconnected")
 
-@app.route('/')
-def home():
-    return 'Welcome to the PR Code Generator!'
-
-if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
