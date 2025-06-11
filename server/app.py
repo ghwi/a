@@ -38,11 +38,13 @@ class PRCode(db.Model):
     code = db.Column(db.String(100), primary_key=True)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
+# ---------- JWT ----------
 def create_token(username):
     expiration = datetime.datetime.utcnow() + datetime.timedelta(hours=1)
     token = jwt.encode({'username': username, 'exp': expiration}, SECRET_KEY, algorithm='HS256')
     return token
 
+# ---------- 라우터 ----------
 @app.route('/signup', methods=['POST'])
 def signup():
     data = request.get_json()
@@ -93,6 +95,13 @@ def verify_pr_code():
     if code_entry:
         return jsonify({'message': 'PR Code verified successfully!'})
     return jsonify({'message': 'Invalid PR Code'}), 400
+
+@app.route('/log-url-click', methods=['POST'])
+def log_url_click():
+    data = request.get_json()
+    url = data.get('url')
+    print(f"[URL 클릭 기록] 사용자가 이동한 URL: {url}")
+    return jsonify({'message': '클릭 기록 완료'}), 200
 
 @app.route('/')
 def home():
