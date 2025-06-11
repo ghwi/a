@@ -78,7 +78,7 @@ def generate_pr_code():
     qr_code_base64 = base64.b64encode(buffer.getvalue()).decode()
 
     # templates/index.HTML 템플릿 렌더링
-    return render_template('index.HTML', pr_code=pr_code, qr_code=qr_code_base64)
+    return render_template('index.html', pr_code=pr_code, qr_code=qr_code_base64)
 
 # WebSocket 이벤트 예시
 @socketio.on('connect')
