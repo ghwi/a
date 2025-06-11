@@ -1,9 +1,12 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
-from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import JWTManager, create_access_token
 from flask_socketio import SocketIO, emit
 import os
+import base64
+import io
+import qrcode
 
 # 환경 변수 로딩
 DB_HOST = os.environ.get("DB_HOST", "localhost")
@@ -31,7 +34,7 @@ class User(db.Model):
     password = db.Column(db.String(255), nullable=False)
     name = db.Column(db.String(100), nullable=False)
     age = db.Column(db.Integer, nullable=False)
-    
+
 @app.route('/')
 def index():
     return 'IoT PR 인증 서버가 정상 작동 중입니다.'
@@ -62,6 +65,21 @@ def signup():
     db.session.commit()
     return jsonify(msg="User created"), 201
 
+# /generate-pr-code 라우트 추가
+@app.route('/generate-pr-code')
+def generate_pr_code():
+    # 실제 PR 코드 생성 로직 넣기 (여기선 예시)
+    pr_code = "PR1234567890"
+
+    # QR 코드 이미지 생성
+    qr_img = qrcode.make(pr_code)
+    buffer = io.BytesIO()
+    qr_img.save(buffer, format="PNG")
+    qr_code_base64 = base64.b64encode(buffer.getvalue()).decode()
+
+    # templates/index.HTML 템플릿 렌더링
+    return render_template('index.HTML', pr_code=pr_code, qr_code=qr_code_base64)
+
 # WebSocket 이벤트 예시
 @socketio.on('connect')
 def handle_connect():
@@ -72,3 +90,6 @@ def handle_connect():
 def handle_disconnect():
     print("Client disconnected")
 
+if __name__ == '__main__':
+    # 로컬 테스트용 실행
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
