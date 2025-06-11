@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: iot-pr-auth-server
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --worker-class eventlet -w 1 app:app
+    envVars:
+      - key: DB_HOST
+        value: 34.64.255.14
+      - key: DB_PORT
+        value: 3306
+      - key: DB_USER
+        value: iotuser
+      - key: DB_PASSWORD
+        value: iotpass123
+      - key: DB_NAME
+        value: iotdb
+      - key: SECRET_KEY
+        value: mysecretkey
