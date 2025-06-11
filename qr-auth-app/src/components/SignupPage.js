@@ -13,7 +13,7 @@ function SignupPage() {
   const handleSignup = async () => {
     try {
       const response = await axios.post(`${API}/signup`, {
-        username,
+        id: username,
         password,
         name,
         age: parseInt(age),

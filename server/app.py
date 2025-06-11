@@ -33,7 +33,6 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 class User(db.Model):
     num = db.Column(db.Integer, primary_key=True, autoincrement=True)
     id = db.Column(db.String(50), unique=True, nullable=False)
-    # DB 컬럼명은 pass이므로 아래처럼 매핑
     pass_hash = db.Column("pass", db.String(255), nullable=False)
     name = db.Column(db.String(100), nullable=False)
     age = db.Column(db.Integer, nullable=False)
@@ -55,23 +54,31 @@ def generate_random_code(length=6):
 def index():
     return 'IoT PR 인증 서버가 정상 작동 중입니다.'
 
+@app.route("/test-db")
+def test_db():
+    try:
+        users = User.query.all()
+        return jsonify({"status": "OK", "user_count": len(users)})
+    except Exception as e:
+        return jsonify({"status": "DB 연결 실패", "error": str(e)})
+
 @app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
-    user = User.query.filter_by(id=data.get('id')).first()
+    user = User.query.filter_by(id=data.get('username')).first()
     if user and user.check_password(data.get('password')):
         access_token = create_access_token(identity=user.id)
-        return jsonify(access_token=access_token), 200
+        return jsonify(token=access_token), 200
     return jsonify(msg="Invalid credentials"), 401
 
 @app.route('/signup', methods=['POST'])
 def signup():
     data = request.get_json()
-    if User.query.filter_by(id=data.get('id')).first():
+    if User.query.filter_by(id=data.get('username')).first():
         return jsonify(msg="User already exists"), 409
 
     new_user = User(
-        id=data.get('id'),
+        id=data.get('username'),
         name=data.get('name'),
         age=data.get('age')
     )
@@ -85,13 +92,11 @@ def signup():
 def generate_pr_code():
     pr_code = generate_random_code(6)
 
-    # QR 코드 이미지 생성
     qr_img = qrcode.make(pr_code)
     buffer = io.BytesIO()
     qr_img.save(buffer, format="PNG")
     qr_code_base64 = base64.b64encode(buffer.getvalue()).decode()
 
-    # PR 코드 DB 저장 (중복코드 처리 간단하게 예외처리)
     try:
         new_pr = PRCode(code=pr_code)
         db.session.add(new_pr)
@@ -101,6 +106,24 @@ def generate_pr_code():
         print("PR 코드 저장 오류:", e)
 
     return render_template('index.html', pr_code=pr_code, qr_code=qr_code_base64)
+
+@app.route('/log-url-click', methods=['POST'])
+def log_url_click():
+    data = request.get_json()
+    url = data.get('url')
+    print(f"사용자가 클릭한 URL: {url}")
+    socketio.emit('url_selected', {'url': url}, broadcast=True)
+    return jsonify({"msg": "URL 전송 완료"}), 200
+
+@socketio.on('verify_pr')
+def verify_pr(data):
+    pr_code = data.get('code')
+    if PRCode.query.filter_by(code=pr_code).first():
+        db.session.query(PRCode).filter_by(code=pr_code).delete()
+        db.session.commit()
+        emit('pr_verified', {'msg': '인증 성공'}, broadcast=True)
+    else:
+        emit('pr_verified', {'msg': '인증 실패'}, broadcast=True)
 
 @socketio.on('connect')
 def handle_connect():
@@ -112,5 +135,4 @@ def handle_disconnect():
     print("Client disconnected")
 
 if __name__ == '__main__':
-    # 로컬 테스트 시 실행
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)

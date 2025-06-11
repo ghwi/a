@@ -1,3 +1,4 @@
+<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -57,7 +58,11 @@
     const socket = io();
 
     socket.on('pr_verified', (data) => {
-      document.getElementById('url-list').style.display = 'block';
+      if (data.msg === '인증 성공') {
+        document.getElementById('url-list').style.display = 'block';
+      } else {
+        alert('인증 실패: 잘못된 PR 코드입니다.');
+      }
     });
 
     socket.on('url_selected', (data) => {
