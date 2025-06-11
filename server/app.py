@@ -1,8 +1,4 @@
 import os
-from flask import Flask, request, jsonify, render_template
-from flask_sqlalchemy import SQLAlchemy
-from flask_cors import CORS
-from dotenv import load_dotenv
 import jwt
 import datetime
 import random
@@ -11,11 +7,19 @@ import qrcode
 import io
 import base64
 
+from flask import Flask, request, jsonify, render_template
+from flask_sqlalchemy import SQLAlchemy
+from flask_cors import CORS
+from dotenv import load_dotenv
+from flask_socketio import SocketIO
+
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
+# 환경변수 기반 DB 설정
 app.config['SQLALCHEMY_DATABASE_URI'] = (
     f"mysql+pymysql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}"
     f"@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
@@ -25,7 +29,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 
 db = SQLAlchemy(app)
 
-# ---------- 모델 ----------
+# ---------- DB 모델 ----------
 class User(db.Model):
     __tablename__ = 'users'
     num = db.Column(db.Integer, primary_key=True)
@@ -94,6 +98,10 @@ def verify_pr_code():
     code_entry = PRCode.query.filter_by(code=pr_code).first()
 
     if code_entry:
+        # 인증된 PR 코드 소켓으로 알림
+        socketio.emit('pr_verified', {'code': pr_code})
+        db.session.delete(code_entry)
+        db.session.commit()
         return jsonify({'message': 'PR Code verified successfully!'})
     return jsonify({'message': 'Invalid PR Code'}), 400
 
@@ -102,6 +110,10 @@ def log_url_click():
     data = request.get_json()
     url = data.get('url')
     print(f"[URL 클릭 기록] 사용자가 이동한 URL: {url}")
+
+    # HTML에 URL 선택 Socket 이벤트 전달
+    socketio.emit('url_selected', {'url': url})
+
     return jsonify({'message': '클릭 기록 완료'}), 200
 
 @app.route('/')
@@ -111,4 +123,5 @@ def home():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    port = int(os.getenv("PORT") or 5000)
+    socketio.run(app, host="0.0.0.0", port=port)
