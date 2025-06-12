@@ -41,8 +41,8 @@
 <body>
   <div class="container">
     <h2>🔐 PR 코드</h2>
-    <p><strong>{{ pr_code }}</strong></p>
-    <img src="data:image/png;base64,{{ qr_code }}" alt="QR Code" />
+    <p id="pr-text"><strong>{{ pr_code }}</strong></p>
+    <img id="qr-img" src="data:image/png;base64,{{ qr_code }}" alt="QR Code" />
     
     <div class="url-box" id="url-list" style="display: none;">
       <h3>✅ 인증 성공! 이동할 사이트를 선택하세요:</h3>
@@ -54,10 +54,15 @@
   </div>
 
   <script>
+    const prText = document.getElementById('pr-text');
+    const qrImg = document.getElementById('qr-img');
+    const urlBox = document.getElementById('url-list');
     const socket = io();
 
     socket.on('pr_verified', (data) => {
-      document.getElementById('url-list').style.display = 'block';
+      if (prText) prText.remove();
+      if (qrImg) qrImg.remove();
+      urlBox.style.display = 'block';
     });
 
     socket.on('url_selected', (data) => {
