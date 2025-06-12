@@ -1,4 +1,3 @@
-<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -44,7 +43,7 @@
     <h2>🔐 PR 코드</h2>
     <p><strong>{{ pr_code }}</strong></p>
     <img src="data:image/png;base64,{{ qr_code }}" alt="QR Code" />
-
+    
     <div class="url-box" id="url-list" style="display: none;">
       <h3>✅ 인증 성공! 이동할 사이트를 선택하세요:</h3>
       <a href="https://www.naver.com" target="_blank" onclick="clickUrl('https://www.naver.com')">네이버</a>
@@ -58,11 +57,7 @@
     const socket = io();
 
     socket.on('pr_verified', (data) => {
-      if (data.msg === '인증 성공') {
-        document.getElementById('url-list').style.display = 'block';
-      } else {
-        alert('인증 실패: 잘못된 PR 코드입니다.');
-      }
+      document.getElementById('url-list').style.display = 'block';
     });
 
     socket.on('url_selected', (data) => {
